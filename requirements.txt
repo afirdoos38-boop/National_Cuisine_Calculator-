@@ -1,0 +1,5 @@
+# National Cuisine Calculator — Python 3.10+
+# Tkinter входит в стандартную поставку Windows/macOS (python.org).
+
+# Опционально: превью фото рецепта в карточке деталей (PIL)
+Pillow>=10.0.0,<12
