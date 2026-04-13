@@ -120,9 +120,21 @@ class Cuisines:
             def arrange_items(event=None):
                 """Расположить карточки кухонь в несколько колонок при изменении ширины."""
                 try:
-                    canvas_width = canvas.winfo_width() or container.winfo_width() or 800
-                    card_min_w = 340
-                    cols = max(1, canvas_width // card_min_w)
+                    # Используем ширину канваса или фрейма, вычитая отступы
+                    s = getattr(self.app, 'ui_scale', 1.0)
+                    available_width = canvas.winfo_width()
+                    if available_width <= 1:
+                        available_width = self.app.root.winfo_width() - 100
+                    
+                    # Безопасный отступ для скроллбара и внутренних паддингов
+                    usable_width = available_width - int(60 * s)
+                    
+                    # Минимальная ширина карточки с учетом масштаба
+                    card_min_w = int(380 * s)
+                    cols = max(1, usable_width // card_min_w)
+                    
+                    # Если места слишком много (например на 4K), ограничим количество колонок до 4-5
+                    cols = min(cols, 5)
 
                     for child in scrollable_frame.grid_slaves():
                         child.grid_forget()
@@ -138,8 +150,12 @@ class Cuisines:
                             sticky='nsew'
                         )
 
-                    for c in range(cols):
-                        scrollable_frame.grid_columnconfigure(c, weight=1)
+                    # Сбрасываем старые веса колонок
+                    for c_idx in range(10): 
+                        scrollable_frame.grid_columnconfigure(c_idx, weight=0)
+                        
+                    for c_idx in range(cols):
+                        scrollable_frame.grid_columnconfigure(c_idx, weight=1)
 
                     scrollable_frame.update_idletasks()
                     canvas.configure(scrollregion=canvas.bbox("all"))
