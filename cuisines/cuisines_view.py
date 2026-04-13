@@ -53,14 +53,14 @@ class Cuisines:
             # даже если в таблице cuisines несколько строк с одним и тем же name.
             cursor.execute(f'''
                 SELECT
-                    c.name,
+                    TRIM(c.name) as cuisine_name,
                     MAX(c.country) AS country,
                     MAX(c.description) AS description,
                     COUNT(r.id) AS recipe_count
                 FROM cuisines c
                 LEFT JOIN recipes r ON c.id = r.cuisine_id
-                WHERE c.name IN ({placeholders})
-                GROUP BY c.name
+                WHERE TRIM(c.name) IN ({placeholders})
+                GROUP BY TRIM(c.name)
             ''', cuisines_list)
 
             # словарь: ключ = имя кухни, значение = (name, country, description, recipe_count)
@@ -75,8 +75,12 @@ class Cuisines:
 
             cursor.close()
 
+            # Создаем отдельный контейнер для сетки карточек, чтобы не было конфликта pack/grid
+            cards_container = ttk.Frame(self.app.current_frame)
+            cards_container.pack(fill='both', expand=True, padx=10, pady=10)
+
             # (Удалено ручное создание скролла, теперь используется create_scrollable_frame)
-            scrollable_frame = self.app.current_frame
+            scrollable_frame = cards_container
             canvas = self.app.main_scroll_container.canvas
             container = self.app.main_scroll_container
 
@@ -106,7 +110,7 @@ class Cuisines:
 
                 ttk.Button(
                     card,
-                    text="📖 Показать рецепты",
+                    text=self.app.get_text('show_recipes_btn'),
                     command=show_cuisine_recipes,
                     width=20
                 ).pack(anchor='e', pady=6)

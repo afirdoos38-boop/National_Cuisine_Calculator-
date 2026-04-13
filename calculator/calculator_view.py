@@ -68,12 +68,12 @@ class Calculator:
         # Уменьшаем начальную высоту таблицы
         calc_tree = ttk.Treeview(calc_frame, columns=columns_keys, show='headings', height=6)
 
-        col_widths = [250, 100, 80, 120, 120]
+        s = getattr(self.app, 'ui_scale', 1.0)
+        col_widths = [int(w * s) for w in [280, 110, 90, 140, 140]]
         for i, (key, width) in enumerate(zip(columns_keys, col_widths)):
             calc_tree.heading(key, text=self.app.get_text(key))
-            # Название ингредиента (первая колонка) должно растягиваться
-            stretch = True if i == 0 else False 
-            calc_tree.column(key, width=width, anchor=tk.CENTER, stretch=stretch)
+            # Все колонки теперь могут немного растягиваться для адаптивности
+            calc_tree.column(key, width=width, anchor=tk.CENTER, stretch=True)
 
         v_scroll = ttk.Scrollbar(calc_frame, orient=tk.VERTICAL, command=calc_tree.yview)
         calc_tree.configure(yscrollcommand=v_scroll.set)
@@ -322,19 +322,19 @@ class Calculator:
         buttons_frame.pack(pady=20, fill='x', side=tk.BOTTOM)
 
         ttk.Button(buttons_frame, text=self.app.get_text('calculate_btn'), command=calculate_ingredients,
-                   style='Accent.TButton', width=15).pack(side='left', padx=5, expand=True)
+                   style='Accent.TButton', width=22).pack(side='left', padx=5, expand=True)
 
         ttk.Button(buttons_frame, text=self.app.get_text('delete_btn'), command=clear_calculation,
-                   width=12).pack(side='left', padx=5, expand=True)
+                   width=20).pack(side='left', padx=5, expand=True)
 
         ttk.Button(buttons_frame, text=self.app.get_text('menu_catalog'), command=self.app.show_recipe_catalog,
-                   width=12).pack(side='left', padx=5, expand=True)
+                   width=20).pack(side='left', padx=5, expand=True)
 
         ttk.Button(buttons_frame, text=self.app.get_text('print'), command=print_to_file,
-                   style='Secondary.TButton', width=12).pack(side='left', padx=5, expand=True)
+                   style='Secondary.TButton', width=20).pack(side='left', padx=5, expand=True)
 
         ttk.Button(buttons_frame, text=self.app.get_text('main_menu_btn'), command=self.app.show_main_menu,
-                   width=15).pack(side='left', padx=5, expand=True)
+                   width=22).pack(side='left', padx=5, expand=True)
 
         load_recipes()
         self.app.root.update()

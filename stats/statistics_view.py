@@ -175,9 +175,10 @@ class Statistics:
 
         rec_cols_keys = ['col_id', 'col_name', 'col_portions', 'col_time', 'col_difficulty', 'col_calories']
         rec_tree = ttk.Treeview(rec_frame, columns=rec_cols_keys, show='headings', height=6)
-        for key, w in zip(rec_cols_keys, [60, 280, 80, 100, 120, 90]):
+        s = getattr(self.app, 'ui_scale', 1.0)
+        for key, w in zip(rec_cols_keys, [int(x * s) for x in [60, 280, 80, 100, 120, 90]]):
             rec_tree.heading(key, text=self.app.get_text(key))
-            rec_tree.column(key, width=w, anchor=tk.CENTER, stretch=False)
+            rec_tree.column(key, width=w, anchor=tk.CENTER, stretch=(key == 'col_name'))
         rec_tree.column('col_name', stretch=True, anchor=tk.W)
 
         rec_ysc = ttk.Scrollbar(rec_frame, orient='vertical', command=rec_tree.yview)
@@ -208,9 +209,10 @@ class Statistics:
             tree['columns'] = col_ids
             tree['displaycolumns'] = col_ids
             
+            s = getattr(self.app, 'ui_scale', 1.0)
             for col_id, (heading, width, col_anchor) in zip(col_ids, columns):
                 tree.heading(col_id, text=heading)
-                tree.column(col_id, width=width, anchor=col_anchor, stretch=True)
+                tree.column(col_id, width=int(width * s), anchor=col_anchor, stretch=True)
             return col_ids
 
         def update_filter_visibility():

@@ -144,7 +144,8 @@ class RecipeManagement:
         # Уменьшаем высоту таблицы для лучшей читаемости на малых экранах
         tree = ttk.Treeview(tree_frame, columns=columns_keys, show='headings', height=12)
 
-        col_widths = [50, 250, 120, 100, 80, 80, 100, 90]
+        s = getattr(self.app, 'ui_scale', 1.0)
+        col_widths = [int(w * s) for w in [50, 250, 120, 100, 80, 80, 100, 90]]
         for i, (key, width) in enumerate(zip(columns_keys, col_widths)):
             tree.heading(key, text=self.app.get_text(key))
             # Название (вторая колонка) должно растягиваться максимально и быть по левому краю
