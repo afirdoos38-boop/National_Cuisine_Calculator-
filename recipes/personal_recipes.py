@@ -20,11 +20,7 @@ class PersonalRecipes:
 
     def create_personal_recipe(self):
         """Создание персонального рецепта для пользователя"""
-        self.app.clear_window()
-        self.app.root.geometry("600x500")
-
-        self.app.current_frame = ttk.Frame(self.app.root, padding=20)
-        self.app.current_frame.pack(fill=tk.BOTH, expand=True)
+        self.app.create_scrollable_frame(padding=25)
 
         ttk.Label(
             self.app.current_frame,
@@ -293,11 +289,7 @@ class PersonalRecipes:
 
     def show_recipe_print(self, recipe_content, recipe_name):
         """Показать рецепт для печати"""
-        self.app.clear_window()
-        self.app.root.geometry("700x600")
-
-        self.app.current_frame = ttk.Frame(self.app.root, padding=20)
-        self.app.current_frame.pack(fill=tk.BOTH, expand=True)
+        self.app.create_scrollable_frame(padding=25)
 
         ttk.Label(
             self.app.current_frame,

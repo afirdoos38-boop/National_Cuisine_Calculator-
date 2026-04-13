@@ -32,10 +32,8 @@ class Cuisines:
 
     def show_cuisines(self):
         """Показать мировые кухни (15 выбранных кухонь)."""
-        self.app.clear_window()
         self.app.draw_header()
-        self.app.current_frame = ttk.Frame(self.app.root, padding=20)
-        self.app.current_frame.pack(fill=tk.BOTH, expand=True)
+        self.app.create_scrollable_frame(padding=25)
         self.app.current_frame.help_tag = 'help_cuisines'
 
         ttk.Label(
@@ -77,25 +75,10 @@ class Cuisines:
 
             cursor.close()
 
-            # Контейнер со скроллом
-            container = ttk.Frame(self.app.current_frame)
-            container.pack(fill=tk.BOTH, expand=True, pady=10)
-
-            canvas = tk.Canvas(container)
-            scrollbar = ttk.Scrollbar(
-                container,
-                orient="vertical",
-                command=canvas.yview
-            )
-            scrollable_frame = ttk.Frame(canvas)
-
-            scrollable_frame.bind(
-                "<Configure>",
-                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-            )
-
-            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-            canvas.configure(yscrollcommand=scrollbar.set)
+            # (Удалено ручное создание скролла, теперь используется create_scrollable_frame)
+            scrollable_frame = self.app.current_frame
+            canvas = self.app.main_scroll_container.canvas
+            container = self.app.main_scroll_container
 
             card_frames = []
             for name, country, description, recipe_count in cuisines:
@@ -162,9 +145,6 @@ class Cuisines:
             canvas.bind("<Configure>", arrange_items)
             arrange_items()
 
-            canvas.pack(side="left", fill="both", expand=True)
-            scrollbar.pack(side="right", fill="y")
-
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка загрузки кухонь: {e}")
 
@@ -182,10 +162,8 @@ class Cuisines:
 
     def show_recipes_by_cuisine(self, cuisine_name):
         """Показать рецепты по выбранной кухне."""
-        self.app.clear_window()
         self.app.draw_header()
-        self.app.current_frame = ttk.Frame(self.app.root)
-        self.app.current_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.app.create_scrollable_frame(padding=25)
 
         ttk.Label(
             self.app.current_frame,
@@ -197,7 +175,7 @@ class Cuisines:
         tree_frame.pack(fill=tk.BOTH, expand=True, pady=10)
 
         columns = ('ID', 'Название', 'Порции', 'Время', 'Сложность', 'Калории')
-        tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=15)
+        tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=10)
 
         col_widths = [50, 300, 80, 80, 100, 80]
         for col, width in zip(columns, col_widths):

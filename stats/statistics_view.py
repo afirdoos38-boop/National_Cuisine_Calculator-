@@ -10,6 +10,7 @@ from tkinter import ttk, messagebox, filedialog
 class Statistics:
     def __init__(self, app):
         self.app = app
+        self.last_hovered_item = None
 
     # ---------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ "САЛАТОВ" ---------- #
 
@@ -40,10 +41,8 @@ class Statistics:
 
     def show_statistics(self):
         """Экран статистики администратора."""
-        self.app.clear_window()
         self.app.draw_header()
-        self.app.current_frame = ttk.Frame(self.app.root, padding=10)
-        self.app.current_frame.pack(fill=tk.BOTH, expand=True)
+        self.app.create_scrollable_frame(padding=25)
         self.app.current_frame.help_tag = 'help_stats'
 
         # ----- Заголовок ----- #
@@ -157,7 +156,7 @@ class Statistics:
         table_frame = ttk.Frame(self.app.current_frame)
         table_frame.pack(fill=tk.BOTH, expand=True, pady=8)
 
-        tree = ttk.Treeview(table_frame, show='headings', height=8)
+        tree = ttk.Treeview(table_frame, show='headings', height=6)
         tree.column('#0', width=0, stretch=False)
         yscr = ttk.Scrollbar(table_frame, orient='vertical', command=tree.yview)
         tree.configure(yscrollcommand=yscr.set)
@@ -175,7 +174,7 @@ class Statistics:
         rec_frame.pack(fill='both', expand=True, pady=(0, 10))
 
         rec_cols_keys = ['col_id', 'col_name', 'col_portions', 'col_time', 'col_difficulty', 'col_calories']
-        rec_tree = ttk.Treeview(rec_frame, columns=rec_cols_keys, show='headings', height=8)
+        rec_tree = ttk.Treeview(rec_frame, columns=rec_cols_keys, show='headings', height=6)
         for key, w in zip(rec_cols_keys, [60, 280, 80, 100, 120, 90]):
             rec_tree.heading(key, text=self.app.get_text(key))
             rec_tree.column(key, width=w, anchor=tk.CENTER, stretch=False)
@@ -825,13 +824,13 @@ class Statistics:
                 if cursor:
                     cursor.close()
 
-        def load_recipes_for_selected(event=None):
+        def load_recipes_for_selected(event=None, item_id=None):
             """
             Нижняя таблица:
             - По кухням      -> рецепты выбранной кухни
             - По видам       -> рецепты выбранного вида
             - По калориям    -> все рецепты, подходящие под текущий фильтр
-            ВСЕГДА БЕЗ ПОВТОРОВ ПО НАЗВАНИЮ.
+            VS - Вызывается также при наведении (hover).
             """
             rec_tree.delete(*rec_tree.get_children())
 
@@ -841,11 +840,17 @@ class Statistics:
             try:
                 cursor = self.app.db_connection.cursor()
 
-                if mode == report_options[0]:
-                    sel = tree.selection()
-                    if not sel:
+                if mode == report_options[0] or mode == report_options[1]:
+                    # Если передан item_id (от hover) - используем его, иначе из выделения
+                    sel_item = item_id if item_id else (tree.selection()[0] if tree.selection() else None)
+                    if not sel_item:
                         return
-                    cuisine_name = tree.item(sel[0])['values'][0]
+                    
+                    # Получаем значение категории (кухня или вид)
+                    category_val = tree.item(sel_item)['values'][0]
+                    
+                    if mode == report_options[0]: # По кухням
+                        cuisine_name = category_val
                     query = """
                         SELECT r.id, r.name, r.base_portions, r.total_time,
                                r.difficulty, r.calories
@@ -867,10 +872,7 @@ class Statistics:
                     query += " ORDER BY r.name"
 
                 elif mode == report_options[1]:
-                    sel = tree.selection()
-                    if not sel:
-                        return
-                    recipe_type = tree.item(sel[0])['values'][0]
+                    recipe_type = category_val
                     type_expr = (
                         "TRIM(CASE WHEN r.tags IS NULL OR r.tags = '' "
                         "THEN 'Без категории' "
@@ -955,15 +957,66 @@ class Statistics:
                 if cursor:
                     cursor.close()
 
-        # ----- Привязки ----- #
-        filter_mode_combo.bind("<<ComboboxSelected>>", lambda event: (update_filter_visibility(), load_stats()))
-        cuisine_combo.bind("<<ComboboxSelected>>", lambda event: load_stats())
-        recipe_type_combo.bind("<<ComboboxSelected>>", lambda event: load_stats())
-        min_cal_entry.bind('<Return>', lambda event: load_stats())
-        max_cal_entry.bind('<Return>', lambda event: load_stats())
+        # ----- بانو معاينة التفاصيل (Quick Preview Table) -----
+        preview_frame = ttk.LabelFrame(self.app.current_frame, text=self.app.get_text('quick_preview'), padding=10)
+        preview_frame.pack(fill='x', pady=(5, 10))
 
-        tree.bind("<<TreeviewSelect>>", load_recipes_for_selected)
-        rec_tree.bind("<Double-1>", open_recipe)
+        # جدول ملخص البيانات (Table format for Stats)
+        columns = ('name_val', 'cuisine_val', 'cal_val', 'time_val')
+        preview_tree = ttk.Treeview(preview_frame, columns=columns, show='headings', height=1)
+        preview_tree.pack(fill='x', pady=(0, 5))
+
+        # تهيئة الأعمدة
+        header_map = {
+            'name_val': 'col_name',
+            'cuisine_val': 'col_cuisine',
+            'cal_val': 'col_calories',
+            'time_val': 'col_time'
+        }
+        for col, key in header_map.items():
+            preview_tree.heading(col, text=self.app.get_text(key))
+            preview_tree.column(col, anchor='center', stretch=True)
+
+        # Description (Larger box below the table)
+        prev_label_desc = ttk.Label(preview_frame, text=self.app.get_text('description_label'), font=('Segoe UI', 10, 'bold'))
+        prev_label_desc.pack(anchor='w', pady=(5, 0))
+        
+        preview_desc_text = tk.Text(preview_frame, height=5, wrap=tk.WORD, bg='#FDFEFE', font=('Segoe UI', 10), relief='groove', borderwidth=1)
+        preview_desc_text.pack(fill='x', expand=True, pady=5)
+        preview_desc_text.config(state='disabled')
+
+        def update_recipe_preview(recipe_id):
+            """جلب تفاصيل الوجبة وتحديث الجدول والوصف."""
+            try:
+                cursor = self.app.db_connection.cursor()
+                cursor.execute("""
+                    SELECT r.name, r.description, r.calories, r.total_time, c.name 
+                    FROM recipes r 
+                    LEFT JOIN cuisines c ON r.cuisine_id = c.id 
+                    WHERE r.id = ?
+                """, (recipe_id,))
+                row = cursor.fetchone()
+                cursor.close()
+                
+                if row:
+                    name, desc, cal, time, cuisine = row
+                    
+                    # تحديث الجدول
+                    preview_tree.delete(*preview_tree.get_children())
+                    preview_tree.insert('', tk.END, values=(
+                        name, 
+                        cuisine if cuisine else "-", 
+                        f"{cal} {self.app.get_text('unit_kcal')}", 
+                        f"{time} {self.app.get_text('unit_min')}"
+                    ))
+                    
+                    # تحديث الوصف
+                    preview_desc_text.config(state='normal')
+                    preview_desc_text.delete('1.0', tk.END)
+                    preview_desc_text.insert('1.0', desc if desc else "-")
+                    preview_desc_text.config(state='disabled')
+            except Exception:
+                pass
 
         btns = ttk.Frame(self.app.current_frame)
         btns.pack(fill='x', pady=6)
@@ -972,6 +1025,37 @@ class Statistics:
             command=self.app.show_main_menu, width=25,
             style='Accent.TButton'
         ).pack(side='left', padx=5)
+
+        # ----- Привязки ----- #
+        filter_mode_combo.bind("<<ComboboxSelected>>", lambda event: (update_filter_visibility(), load_stats()))
+        cuisine_combo.bind("<<ComboboxSelected>>", lambda event: load_stats())
+        recipe_type_combo.bind("<<ComboboxSelected>>", lambda event: load_stats())
+        min_cal_entry.bind('<Return>', lambda event: load_stats())
+        max_cal_entry.bind('<Return>', lambda event: load_stats())
+
+        tree.bind("<<TreeviewSelect>>", load_recipes_for_selected)
+        
+        self.last_hovered_recipe = None
+        
+        def on_mouse_hover(event):
+            """Обновление нижней таблицы при наведении على الجدول العلوي."""
+            item = tree.identify_row(event.y)
+            if item and item != self.last_hovered_item:
+                self.last_hovered_item = item
+                load_recipes_for_selected(item_id=item)
+
+        def on_recipe_hover(event):
+            """تحديث شريط التفاصيل عند تمرير الماوس فوق وجبة في الجدول السفلي."""
+            item = rec_tree.identify_row(event.y)
+            if item and item != self.last_hovered_recipe:
+                self.last_hovered_recipe = item
+                vals = rec_tree.item(item)['values']
+                if vals:
+                    update_recipe_preview(vals[0])
+        
+        tree.bind("<Motion>", on_mouse_hover)
+        rec_tree.bind("<Motion>", on_recipe_hover)
+        rec_tree.bind("<Double-1>", open_recipe)
 
         # ----- Стартовая загрузка ----- #
         load_cuisine_list()

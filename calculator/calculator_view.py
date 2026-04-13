@@ -16,61 +16,64 @@ class Calculator:
     def show_calculator(self, pre_selected_recipe_id=None):
         """Калькулятор продуктов"""
 
-        # Нормализуем ID рецепта (может прийти строкой из Treeview)
-        if pre_selected_recipe_id is not None:
-            try:
-                pre_selected_recipe_id = int(pre_selected_recipe_id)
-            except (TypeError, ValueError):
-                pre_selected_recipe_id = None
-
-        self.app.clear_window()
         self.app.draw_header()
-
-        self.app.current_frame = ttk.Frame(self.app.root, padding=15)
-        self.app.current_frame.pack(fill=tk.BOTH, expand=True)
+        self.app.create_scrollable_frame(padding=25)
         self.app.current_frame.help_tag = 'help_calc'
 
         ttk.Label(self.app.current_frame, text=self.app.get_text('menu_calc'),
                   style='Title.TLabel').pack(pady=10)
 
-        # Выбор рецепта
-        select_frame = ttk.Frame(self.app.current_frame)
+        # Выбор рецепта (Premium Grid Layout)
+        select_frame = ttk.LabelFrame(self.app.current_frame, text=self.app.get_text('select_recipe_for_calc'), padding=15)
         select_frame.pack(fill='x', pady=10)
+        
+        select_frame.columnconfigure(0, weight=3)
+        select_frame.columnconfigure(1, weight=1)
 
-        ttk.Label(select_frame, text=self.app.get_text('select_recipe'), font=('Arial', 11)).pack(anchor='w', pady=5)
-
-        list_frame = ttk.Frame(select_frame)
-        list_frame.pack(fill='x', pady=5)
-
+        # Левая часть: Список рецептов
+        list_container = ttk.Frame(select_frame)
+        list_container.grid(row=0, column=0, sticky='nsew', padx=5)
+        
+        ttk.Label(list_container, text=self.app.get_text('select_recipe'), font=('Segoe UI', 11, 'bold')).pack(anchor='w', pady=5)
+        
         recipe_listbox = tk.Listbox(
-            list_frame,
+            list_container,
             height=6,
-            font=('Arial', 10),
-            selectbackground='lightblue',
-            selectforeground='black'
+            font=('Segoe UI', 10),
+            selectbackground='#3498DB',
+            selectforeground='white',
+            borderwidth=1,
+            relief='flat'
         )
-        recipe_listbox.pack(side='left', fill='x', expand=True)
+        recipe_listbox.pack(side='left', fill='both', expand=True)
 
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=recipe_listbox.yview)
+        scrollbar = ttk.Scrollbar(list_container, orient=tk.VERTICAL, command=recipe_listbox.yview)
         recipe_listbox.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side='right', fill='y')
 
-        ttk.Label(select_frame, text=self.app.get_text('portions_label'), font=('Arial', 11)).pack(anchor='w', pady=5)
-        portions_entry = ttk.Entry(select_frame, width=10, font=('Arial', 11))
-        portions_entry.insert(0, "0")
-        portions_entry.pack(anchor='w', pady=5)
+        # Правая часть: Порции
+        portions_frame = ttk.Frame(select_frame)
+        portions_frame.grid(row=0, column=1, sticky='n', padx=20)
+        
+        ttk.Label(portions_frame, text=self.app.get_text('portions_label'), font=('Segoe UI', 11, 'bold')).pack(pady=5)
+        portions_entry = ttk.Entry(portions_frame, width=12, font=('Segoe UI', 12), justify='center')
+        portions_entry.insert(0, "1") 
+        portions_entry.pack(pady=5)
 
         # Таблица расчёта
         calc_frame = ttk.Frame(self.app.current_frame)
         calc_frame.pack(fill=tk.BOTH, expand=True, pady=10)
 
         columns_keys = ['col_ingredient', 'col_quantity', 'col_unit', 'col_price_per_unit', 'col_total_cost']
-        calc_tree = ttk.Treeview(calc_frame, columns=columns_keys, show='headings', height=8)
+        # Уменьшаем начальную высоту таблицы
+        calc_tree = ttk.Treeview(calc_frame, columns=columns_keys, show='headings', height=6)
 
-        col_widths = [200, 100, 80, 120, 120]
-        for key, width in zip(columns_keys, col_widths):
+        col_widths = [250, 100, 80, 120, 120]
+        for i, (key, width) in enumerate(zip(columns_keys, col_widths)):
             calc_tree.heading(key, text=self.app.get_text(key))
-            calc_tree.column(key, width=width, anchor=tk.CENTER)
+            # Название ингредиента (первая колонка) должно растягиваться
+            stretch = True if i == 0 else False 
+            calc_tree.column(key, width=width, anchor=tk.CENTER, stretch=stretch)
 
         v_scroll = ttk.Scrollbar(calc_frame, orient=tk.VERTICAL, command=calc_tree.yview)
         calc_tree.configure(yscrollcommand=v_scroll.set)

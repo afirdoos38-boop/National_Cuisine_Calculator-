@@ -13,11 +13,7 @@ class UserManagement:
 
     def manage_users(self):
         """Управление пользователями (только для администратора)"""
-        self.app.clear_window()
-        self.app.root.geometry("800x600")
-
-        self.app.current_frame = ttk.Frame(self.app.root, padding=20)
-        self.app.current_frame.pack(fill=tk.BOTH, expand=True)
+        self.app.create_scrollable_frame(padding=25)
         self.app.current_frame.help_tag = 'help_users'
 
         ttk.Label(self.app.current_frame, text=self.app.get_text('user_mgmt_title'),
@@ -30,10 +26,12 @@ class UserManagement:
         columns_keys = ['col_id', 'col_login', 'col_fullname', 'col_role', 'col_date']
         tree = ttk.Treeview(tree_frame, columns=columns_keys, show='headings', height=15)
 
-        col_widths = [50, 120, 150, 100, 150]
-        for key, width in zip(columns_keys, col_widths):
+        col_widths = [50, 150, 250, 100, 150]
+        for i, (key, width) in enumerate(zip(columns_keys, col_widths)):
             tree.heading(key, text=self.app.get_text(key))
-            tree.column(key, width=width, anchor=tk.CENTER)
+            # Полное имя (третья колонка) должно растягиваться
+            stretch = True if i == 2 else False 
+            tree.column(key, width=width, anchor=tk.CENTER, stretch=stretch)
 
         v_scroll = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=tree.yview)
         tree.configure(yscrollcommand=v_scroll.set)

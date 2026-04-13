@@ -66,40 +66,74 @@ class RecipeManagement:
     def show_recipe_catalog(self, initial_search=None):
         """Каталог рецептов (Requirement 6: сохранение состояния)"""
         self.app.update_nav_stack(self.show_recipe_catalog, 'menu_catalog', args=[initial_search])
-        self.app.clear_window()
         self.app.draw_header()
-        
-        self.app.current_frame = ttk.Frame(self.app.root)
-        self.app.current_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.app.create_scrollable_frame(padding=25)
         self.app.current_frame.help_tag = 'help_catalog'
 
         ttk.Label(self.app.current_frame, text=self.app.get_text('menu_catalog'),
                   style='Title.TLabel').pack(pady=10)
 
         # Поиск и фильтры
-        search_frame = ttk.Frame(self.app.current_frame)
+        # Поиск и фильтры (Premium Grid Layout)
+        search_frame = ttk.LabelFrame(self.app.current_frame, text=self.app.get_text('filters_title'), padding=10)
         search_frame.pack(fill='x', pady=10)
+        
+        for i in range(4):
+            search_frame.columnconfigure(i, weight=1)
 
-        ttk.Label(search_frame, text=self.app.get_text('search_label'), font=('Arial', 10)).pack(side='left', padx=5)
-        search_entry = ttk.Entry(search_frame, width=30)
+        ttk.Label(search_frame, text=self.app.get_text('search_label')).grid(row=0, column=0, sticky='w', padx=5, pady=5)
+        search_entry = ttk.Entry(search_frame)
         if initial_search:
             search_entry.insert(0, initial_search)
-        search_entry.pack(side='left', padx=5)
+        search_entry.grid(row=0, column=1, sticky='ew', padx=5, pady=5)
 
-        ttk.Label(search_frame, text=self.app.get_text('cuisine_label'), font=('Arial', 10)).pack(side='left', padx=5)
-        cuisine_combo = ttk.Combobox(search_frame, width=20)
-        cuisine_combo.pack(side='left', padx=5)
+        ttk.Label(search_frame, text=self.app.get_text('cuisine_label')).grid(row=0, column=2, sticky='w', padx=5, pady=5)
+        cuisine_combo = ttk.Combobox(search_frame)
+        cuisine_combo.grid(row=0, column=3, sticky='ew', padx=5, pady=5)
 
-        ttk.Label(search_frame, text=self.app.get_text('difficulty_label'), font=('Arial', 10)).pack(side='left', padx=5)
-        difficulty_combo = ttk.Combobox(search_frame, values=['', self.app.get_text('diff_easy'), self.app.get_text('diff_medium'), self.app.get_text('diff_hard')], width=10)
-        difficulty_combo.pack(side='left', padx=5)
+        ttk.Label(search_frame, text=self.app.get_text('difficulty_label')).grid(row=1, column=0, sticky='w', padx=5, pady=5)
+        difficulty_combo = ttk.Combobox(search_frame, values=['', self.app.get_text('diff_easy'), self.app.get_text('diff_medium'), self.app.get_text('diff_hard')])
+        difficulty_combo.grid(row=1, column=1, sticky='ew', padx=5, pady=5)
 
-        ttk.Label(search_frame, text=self.app.get_text('category_label'), font=('Arial', 10)).pack(side='left', padx=5)
+        ttk.Label(search_frame, text=self.app.get_text('category_label')).grid(row=1, column=2, sticky='w', padx=5, pady=5)
         category_combo = ttk.Combobox(search_frame,
-                                      values=['', self.app.get_text('cat_salad'), self.app.get_text('cat_soup'), self.app.get_text('cat_snack'), self.app.get_text('cat_main'), self.app.get_text('cat_dessert'), self.app.get_text('cat_drink')],
-                                      width=15)
+                                      values=['', self.app.get_text('cat_salad'), self.app.get_text('cat_soup'), self.app.get_text('cat_snack'), self.app.get_text('cat_main'), self.app.get_text('cat_dessert'), self.app.get_text('cat_drink')])
         category_combo.set('')
-        category_combo.pack(side='left', padx=5)
+        category_combo.grid(row=1, column=3, sticky='ew', padx=5, pady=5)
+
+        # Ряд 2: Кнопки действий (Centered)
+        btn_container = ttk.Frame(search_frame)
+        btn_container.grid(row=2, column=0, columnspan=4, pady=10)
+
+        # Функции фильтрации должны быть определены далее, но кнопки можно объявить сейчас
+        # (Они используют лямбды или будут привязаны позже)
+        # На самом деле они определяются ниже по коду, поэтому используем command=apply_filters
+        
+        # Переместим определение функций фильтрации выше или используем существующие
+        # В текущем файле они определены ниже. Тк это Tkinter, мы можем использовать 
+        # отложенную привязку или просто передвинуть их.
+        
+        apply_btn = ttk.Button(btn_container, text=self.app.get_text('apply_filters'), style='Accent.TButton')
+        apply_btn.pack(side='left', padx=10)
+        
+        reset_btn = ttk.Button(btn_container, text=self.app.get_text('reset_filters'))
+        reset_btn.pack(side='left', padx=10)
+
+        def apply_filters():
+            load_recipes()
+
+        def reset_filters():
+            search_entry.delete(0, tk.END)
+            cuisine_combo.set('')
+            difficulty_combo.set('')
+            category_combo.set('')
+            load_recipes()
+
+        apply_btn.configure(command=apply_filters)
+        reset_btn.configure(command=reset_filters)
+
+        # При поиске по Enter
+        search_entry.bind('<Return>', lambda e: apply_filters())
 
         # Таблица рецептов
         tree_frame = ttk.Frame(self.app.current_frame)
@@ -107,12 +141,16 @@ class RecipeManagement:
 
         columns_keys = ['col_id', 'col_name', 'col_cuisine', 'col_country', 'col_portions', 'col_time', 'col_difficulty', 'col_calories']
         columns = tuple(self.app.get_text(k) for k in columns_keys)
-        tree = ttk.Treeview(tree_frame, columns=columns_keys, show='headings', height=20)
+        # Уменьшаем высоту таблицы для лучшей читаемости на малых экранах
+        tree = ttk.Treeview(tree_frame, columns=columns_keys, show='headings', height=12)
 
-        col_widths = [50, 200, 120, 100, 70, 70, 90, 80]
-        for key, width in zip(columns_keys, col_widths):
+        col_widths = [50, 250, 120, 100, 80, 80, 100, 90]
+        for i, (key, width) in enumerate(zip(columns_keys, col_widths)):
             tree.heading(key, text=self.app.get_text(key))
-            tree.column(key, width=width, anchor=tk.CENTER)
+            # Название (вторая колонка) должно растягиваться максимально и быть по левому краю
+            stretch = True if i == 1 else False 
+            anchor = tk.W if i == 1 else tk.CENTER
+            tree.column(key, width=width, anchor=anchor, stretch=stretch)
 
         v_scroll = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=tree.yview)
         h_scroll = ttk.Scrollbar(tree_frame, orient=tk.HORIZONTAL, command=tree.xview)
@@ -331,11 +369,8 @@ class RecipeManagement:
         except: pass
 
         self.app.update_nav_stack(self.show_recipe_details, 'view_details', args=[recipe_id])
-        self.app.clear_window()
         self.app.draw_header()
-        
-        self.app.current_frame = ttk.Frame(self.app.root, padding=15)
-        self.app.current_frame.pack(fill=tk.BOTH, expand=True)
+        self.app.create_scrollable_frame(padding=25)
         self.app.current_frame.help_tag = 'help_details'
 
         cursor = None
@@ -466,10 +501,8 @@ class RecipeManagement:
     # ------------------ РЕДАКТИРОВАНИЕ РЕЦЕПТА (с поддержкой изображения) ------------------
     def edit_recipe(self, recipe_id):
         """Редактирование рецепта (с возможностью изменить изображение)"""
-        self.app.clear_window()
-        self.app.current_frame = ttk.Frame(self.app.root, padding=20)
-        self.app.current_frame.pack(fill=tk.BOTH, expand=True)
-
+        self.app.draw_header()
+        self.app.create_scrollable_frame(padding=25)
         ttk.Label(self.app.current_frame, text="✏️ Редактировать рецепт", style='Title.TLabel').pack(pady=10)
 
         cursor = None
@@ -711,9 +744,8 @@ class RecipeManagement:
     # ------------------ ДОБАВЛЕНИЕ РЕЦЕПТА (с изображением) ------------------
     def add_recipe(self):
         """Добавление нового рецепта (с выбором изображения)"""
-        self.app.clear_window()
-        self.app.current_frame = ttk.Frame(self.app.root, padding=20)
-        self.app.current_frame.pack(fill=tk.BOTH, expand=True)
+        self.app.draw_header()
+        self.app.create_scrollable_frame(padding=25)
 
         ttk.Label(self.app.current_frame, text="➕ Добавить новый рецепт",
                   style='Title.TLabel').pack(pady=10)

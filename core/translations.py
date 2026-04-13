@@ -258,6 +258,16 @@ TRANSLATIONS = {
         'ar': '🖨️ طباعة',
         'en': '🖨️ Print'
     },
+    'apply_filters': {
+        'ru': '✅ Применить',
+        'ar': '✅ تطبيق الكل',
+        'en': '✅ Apply Filters'
+    },
+    'reset_filters': {
+        'ru': '🔄 Сбросить',
+        'ar': '🔄 إعادة ضبط',
+        'en': '🔄 Reset'
+    },
 
     # ==================== Фильтры каталога (Catalog Filters) ====================
     'search_label': {
@@ -416,6 +426,16 @@ TRANSLATIONS = {
         'ar': 'روبل',
         'en': 'RUB'
     },
+    'unit_kcal': {
+        'ru': 'ккал',
+        'ar': 'سعرة',
+        'en': 'kcal'
+    },
+    'unit_min': {
+        'ru': 'мин',
+        'ar': 'دقيقة',
+        'en': 'min'
+    },
 
     # ==================== Статистика (Statistics) ====================
     'total_recipes_label': {
@@ -432,6 +452,11 @@ TRANSLATIONS = {
         'ru': 'Всего пользователей: {n}',
         'ar': 'إجمالي المستخدمين: {n}',
         'en': 'Total users: {n}'
+    },
+    'quick_preview': {
+        'ru': '📝 Быстрый просмотр деталей',
+        'ar': '📝 معاينة سريعة لتفاصيل الوجبة',
+        'en': '📝 Quick Recipe Details Preview'
     },
     'filters_title': {
         'ru': 'Фильтры',

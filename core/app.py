@@ -21,19 +21,78 @@ from database.database import DatabaseManager
 from core.translations import TRANSLATIONS
 
 
+class ScrollableFrame(ttk.Frame):
+    """
+    Контейнер с полосой прокрутки.
+    Позволяет размещать контент, превышающий размеры окна.
+    """
+    def __init__(self, container, *args, **kwargs):
+        super().__init__(container, *args, **kwargs)
+        # ttk.Frame не поддерживает cget("background"). Используем основной цвет приложения.
+        bg_color = "#ECF0F1"
+        self.canvas = tk.Canvas(self, bg=bg_color, highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+
+        # Bind canvas resize to update inner frame width
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        
+        # Прокрутка колесиком мыши
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _on_canvas_configure(self, event):
+        """Update inner frame width to match canvas."""
+        # Force the inner window to take the canvas width
+        # This ensures responsiveness (shrinking/growing)
+        self.canvas.itemconfig(self.canvas_window, width=event.width)
+
+    def _on_mousewheel(self, event):
+        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+    def destroy(self):
+        self.canvas.unbind_all("<MouseWheel>")
+        super().destroy()
+
+
 class NationalCuisineCalculator:
     def __init__(self, root):
         self.root = root
-        self.root.title(" Калькулятор продуктов для национальной кухни")
-        # при старте открываем приложение в полноэкранном режиме (максимизированное окно)
-        try:
-            self.root.state('zoomed')
-        except:
-            # запасной вариант, если state('zoomed') не сработал
-            try:
-                self.root.attributes("-zoomed", True)
-            except:
-                pass
+        self.root.title("National Cuisine Calculator")
+        
+        # Определение коэффициента масштабирования (DPI Scaling)
+        self.scaling_factor = self.get_scaling_factor()
+        
+        # Настройка начального состояния окна
+        self.root.minsize(900, 650)  # Увеличен минимальный размер для стабильности
+        self.root.resizable(True, True)
+
+        # Вместо автоматического развертывания (zoomed), задаем оптимальный размер для 1080p
+        # При 150% масштабе стандартное окно должно быть заметным, но не огромным
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        
+        # Оптимальный размер: ~70% ширины и ~80% высоты
+        initial_w = min(1350, int(screen_w * 0.8))
+        initial_h = min(850, int(screen_h * 0.85))
+        
+        x = (screen_w - initial_w) // 2
+        y = (screen_h - initial_h) // 2
+        
+        self.root.geometry(f"{initial_w}x{initial_h}+{x}+{y}")
+        self.root.configure(bg="#ECF0F1")
 
         self.current_user = None
         self.current_frame = None
@@ -49,6 +108,11 @@ class NationalCuisineCalculator:
 
         # Состояние навигации (Breadcrumbs)
         self.nav_stack = [] 
+
+        # Параметры масштабирования UI (Requirement: Dynamic Design)
+        self.ui_scale = 1.0
+        self.resize_timer = None
+        self.root.bind("<Configure>", self._on_root_configure)
 
         # Стили
         self.setup_styles()
@@ -73,12 +137,15 @@ class NationalCuisineCalculator:
         self.root.bind('<Escape>', lambda e: self.handle_escape())
 
     def setup_styles(self):
-        """Настройка стилей с современным дизайном (Premium Look)"""
+        """Настройка стилей с динамическим масштабированием (Responsive & Premium)"""
         style = ttk.Style()
         
         # Используем тему 'clam' для лучшей настройки
         if 'clam' in style.theme_names():
             style.theme_use('clam')
+            
+        # Коэффициент масштаба
+        s = self.ui_scale
             
         # Основные цвета палитры
         bg_main = "#ECF0F1"
@@ -86,42 +153,89 @@ class NationalCuisineCalculator:
         accent_color = "#E67E22"
         text_color = "#1B2631"
         
+        # Шрифты с учетом масштаба (оптимизированы для 150% DPI)
+        font_main = ('Segoe UI', int(10 * s))
+        font_bold = ('Segoe UI', int(10 * s), 'bold')
+        font_title = ('Segoe UI', int(20 * s), 'bold') # Уменьшен с 24
+        font_subtitle = ('Segoe UI', int(12 * s)) # Уменьшен с 14
+        font_header = ('Segoe UI', int(10 * s), 'bold') # Уменьшен с 11
+        font_button = ('Segoe UI', int(10 * s), 'bold') # Уменьшен с 11
+        
         # Настройка фона для всех Frame
         style.configure('TFrame', background=bg_main)
         style.configure('TLabelframe', background=bg_main)
-        style.configure('TLabelframe.Label', background=bg_main, foreground=primary_color, font=('Arial', 10, 'bold'))
+        style.configure('TLabelframe.Label', background=bg_main, foreground=primary_color, font=font_bold)
         
         # Заголовки
-        style.configure('Title.TLabel', font=('Segoe UI', 24, 'bold'), foreground=primary_color, background=bg_main)
-        style.configure('Subtitle.TLabel', font=('Segoe UI', 14), foreground="#5D6D7E", background=bg_main)
-        style.configure('Header.TLabel', font=('Segoe UI', 11, 'bold'), foreground=text_color, background="#D6EAF8")
+        style.configure('Title.TLabel', font=font_title, foreground=primary_color, background=bg_main)
+        style.configure('Subtitle.TLabel', font=font_subtitle, foreground="#5D6D7E", background=bg_main)
+        style.configure('Header.TLabel', font=font_header, foreground=text_color, background="#D6EAF8")
         
-        # Кнопки
-        style.configure('TButton', font=('Segoe UI', 10), padding=6)
+        # Кнопки с масштабируемым отступом (Requirement: Responsive UI)
+        btn_padding = int(8 * s)
+        style.configure('TButton', font=font_button, padding=btn_padding)
         
         # Акцентная кнопка (синяя)
-        style.configure('Accent.TButton', font=('Segoe UI', 11, 'bold'), foreground="white", background=primary_color)
+        style.configure('Accent.TButton', font=font_button, foreground="white", background=primary_color, padding=btn_padding)
         style.map('Accent.TButton', background=[('active', '#21618C')])
         
         # Вторичная кнопка (оранжевая)
-        style.configure('Secondary.TButton', font=('Segoe UI', 10, 'bold'), foreground="white", background=accent_color)
+        style.configure('Secondary.TButton', font=font_button, foreground="white", background=accent_color, padding=btn_padding)
         style.map('Secondary.TButton', background=[('active', '#A04000')])
         
         # Кнопка удаления (красная)
-        style.configure('Delete.TButton', font=('Segoe UI', 10, 'bold'), foreground="white", background='#C0392B')
+        style.configure('Delete.TButton', font=font_button, foreground="white", background='#C0392B', padding=btn_padding)
         style.map('Delete.TButton', background=[('active', '#922B21')])
         
         # Поля ввода
-        style.configure('TEntry', padding=5)
+        style.configure('TEntry', padding=int(5 * s))
         
         # Настройка Treeview
-        style.configure('Treeview', font=('Segoe UI', 10), rowheight=25, background="#FFFFFF", fieldbackground="#FFFFFF")
-        style.configure('Treeview.Heading', font=('Segoe UI', 10, 'bold'))
+        style.configure('Treeview', font=font_main, rowheight=int(28 * s), background="#FFFFFF", fieldbackground="#FFFFFF")
+        style.configure('Treeview.Heading', font=font_bold)
         # Настройка статус-бара
-        style.configure('Status.TLabel', font=('Segoe UI', 9), background='#D5D8DC', foreground='#566573')
+        style.configure('Status.TLabel', font=('Segoe UI', int(9 * s)), background='#D5D8DC', foreground='#566573')
         
         # Настройка приложения
         self.root.configure(background=bg_main)
+
+    def _on_root_configure(self, event):
+        """Обработка изменения размера окна (Debounced)"""
+        if event.widget != self.root:
+            return
+            
+        if self.resize_timer:
+            self.root.after_cancel(self.resize_timer)
+            
+        self.resize_timer = self.root.after(200, self.apply_ui_scaling)
+
+    def apply_ui_scaling(self):
+        """Рассчитывает новый коэффициент масштаба и обновляет интерфейс"""
+        try:
+            w = self.root.winfo_width()
+            h = self.root.winfo_height()
+            
+            # Референсное разрешение (увеличено для современных экранов)
+            ref_w, ref_h = 1440, 900
+            
+            scale_w = w / ref_w
+            scale_h = h / ref_h
+            
+            # Используем более взвешенное масштабирование
+            new_scale = (scale_w + scale_h) / 2
+            
+            # Ограничиваем диапазон (0.9 - 1.3 для предотвращения гигантизма)
+            new_scale = max(0.9, min(new_scale, 1.3))
+            
+            if abs(self.ui_scale - new_scale) > 0.04:
+                self.ui_scale = new_scale
+                self.setup_styles()
+                
+                # Перерисовываем если нужно
+                # if self.current_frame:
+                #    self.root.update_idletasks()
+        except Exception:
+            pass
 
     def draw_status_bar(self):
         """Отрисовка строки подсказки горячих клавиш (Requirement 7)"""
@@ -138,7 +252,10 @@ class NationalCuisineCalculator:
         """Рекламная заставка (Requirement 7)"""
         self.clear_window()
         
-        splash_frame = ttk.Frame(self.root, padding=40)
+        self.main_scroll_container = ScrollableFrame(self.root)
+        self.main_scroll_container.pack(fill=tk.BOTH, expand=True)
+        
+        splash_frame = ttk.Frame(self.main_scroll_container.scrollable_frame, padding=40)
         splash_frame.pack(fill=tk.BOTH, expand=True)
         self.current_frame = splash_frame
         
@@ -233,10 +350,28 @@ class NationalCuisineCalculator:
             
         if self.current_frame:
             try:
+                # Если это ScrollableFrame, вызываем его метод destroy для отвязки событий
                 self.current_frame.destroy()
             except:
                 pass
             self.current_frame = None
+
+        if hasattr(self, 'main_scroll_container') and self.main_scroll_container:
+            try:
+                self.main_scroll_container.destroy()
+            except:
+                pass
+            self.main_scroll_container = None
+
+    def create_scrollable_frame(self, padding=25):
+        """Создает и возвращает новый ScrollableFrame, установленный как текущий контейнер."""
+        self.clear_window()
+        self.main_scroll_container = ScrollableFrame(self.root)
+        self.main_scroll_container.pack(fill=tk.BOTH, expand=True)
+        
+        self.current_frame = ttk.Frame(self.main_scroll_container.scrollable_frame, padding=padding)
+        self.current_frame.pack(fill=tk.BOTH, expand=True)
+        return self.current_frame
 
     def draw_header(self):
         """Отрисовка заголовка с информацией о пользователе и сменой языка."""
@@ -270,27 +405,55 @@ class NationalCuisineCalculator:
         
         self.draw_status_bar()
 
-    def fit_window_to_content(self, extra_w=80, extra_h=140, max_ratio=0.95):
+    def get_scaling_factor(self):
+        """Определяет коэффициент масштабирования экрана."""
+        try:
+            # Tkinter's 'tk scaling' возвращает пикселей на пункт. 
+            # Стандартное значение 1.333 (96 DPI / 72 points).
+            scaling = self.root.call('tk', 'scaling')
+            factor = scaling / 1.3333333333333333
+            return factor
+        except Exception:
+            return 1.0
+
+    def fit_window_to_content(self, extra_w=80, extra_h=160, max_ratio=0.9):
         """
-        Подогнать размер главного окна под содержимое current_frame.
-        extra_w/extra_h — дополнительные отступы, max_ratio — максимальная доля экрана.
+        Подогнать размер главного окна под содержимое с учетом масштабирования.
         """
         try:
             self.root.update_idletasks()
-            if not self.current_frame:
+            
+            if self.root.state() == 'zoomed':
                 return
+
+            # Коэффициент масштабирования
+            f = self.scaling_factor
+
+            # Берем размеры контента
+            target = self.current_frame
+            if hasattr(self, 'main_scroll_container') and self.main_scroll_container:
+                if hasattr(self.main_scroll_container, 'scrollable_frame'):
+                    target = self.main_scroll_container.scrollable_frame
 
             sw = self.root.winfo_screenwidth()
             sh = self.root.winfo_screenheight()
 
-            req_w = self.current_frame.winfo_reqwidth() + extra_w
-            req_h = self.current_frame.winfo_reqheight() + extra_h
+            # Масштабируем отступы
+            req_w = target.winfo_reqwidth() + int(extra_w * f)
+            req_h = target.winfo_reqheight() + int(extra_h * f)
+            
+            if hasattr(self, 'current_frame_header') and self.current_frame_header:
+                req_h += self.current_frame_header.winfo_reqheight()
 
             max_w = int(sw * max_ratio)
             max_h = int(sh * max_ratio)
 
-            w = min(req_w, max_w)
-            h = min(req_h, max_h)
+            # Минимальные размеры зависят от разрешения и масштабирования
+            min_w = int(800 * f)
+            min_h = int(600 * f)
+
+            w = max(min(req_w, max_w), min(min_w, sw))
+            h = max(min(req_h, max_h), min(min_h, sh))
 
             x = max((sw - w) // 2, 0)
             y = max((sh - h) // 2, 0)
@@ -328,7 +491,10 @@ class NationalCuisineCalculator:
         self.nav_stack = []
         self.clear_window()
 
-        self.current_frame = ttk.Frame(self.root, padding=30)
+        self.main_scroll_container = ScrollableFrame(self.root)
+        self.main_scroll_container.pack(fill=tk.BOTH, expand=True)
+
+        self.current_frame = ttk.Frame(self.main_scroll_container.scrollable_frame, padding=30)
         self.current_frame.pack(fill=tk.BOTH, expand=True)
         self.current_frame.help_tag = 'help_login'
 
@@ -426,8 +592,11 @@ class NationalCuisineCalculator:
         self.clear_window()
         self.draw_header()
 
+        self.main_scroll_container = ScrollableFrame(self.root)
+        self.main_scroll_container.pack(fill=tk.BOTH, expand=True)
+
         # المحتوى الرئيسي
-        main_container = ttk.Frame(self.root, padding=30)
+        main_container = ttk.Frame(self.main_scroll_container.scrollable_frame, padding=30)
         main_container.pack(fill=tk.BOTH, expand=True)
         self.current_frame = main_container
         self.current_frame.help_tag = 'help_main'
@@ -460,41 +629,42 @@ class NationalCuisineCalculator:
         menu_frame = ttk.Frame(main_container)
         menu_frame.pack(fill=tk.BOTH, expand=True, pady=10)
 
+        # Центрирование сетки
+        for i in range(3):
+            menu_frame.columnconfigure(i, weight=1)
+
         # تحديد الوظائف حسب الصلاحيات مع أيقونات
         functions = [
-            (self.get_text('menu_catalog'), self.get_text('menu_catalog_desc'), self.recipe_mgmt.show_recipe_catalog),
-            (self.get_text('menu_cuisines'), self.get_text('menu_cuisines_desc'), self.cuisines.show_cuisines),
-            (self.get_text('menu_stats'), self.get_text('menu_stats_desc'), self.statistics.show_statistics),
-            (self.get_text('menu_calc'), self.get_text('menu_calc_desc'), self.calculator.show_calculator),
+            (self.get_text('menu_catalog'), "📖", self.recipe_mgmt.show_recipe_catalog),
+            (self.get_text('menu_cuisines'), "🌍", self.cuisines.show_cuisines),
+            (self.get_text('menu_stats'), "📊", self.statistics.show_statistics),
+            (self.get_text('menu_calc'), "🧮", self.calculator.show_calculator),
         ]
 
-        # أزرار المستخدم العادي
         if self.current_user['role'] == 'user':
-            functions.append((self.get_text('menu_create_recipe'), self.get_text('menu_create_recipe_desc'), self.personal_recipes.create_personal_recipe))
+            functions.append((self.get_text('menu_create_recipe'), "👨‍🍳", self.personal_recipes.create_personal_recipe))
 
-        # أزرار الإدارة والشيف
         if self.current_user['role'] in ['admin', 'chef']:
-            functions.append((self.get_text('menu_add_recipe'), self.get_text('menu_add_recipe_desc'), self.recipe_mgmt.add_recipe))
+            functions.append((self.get_text('menu_add_recipe'), "➕", self.recipe_mgmt.add_recipe))
 
         if self.current_user['role'] == 'admin':
-            functions.append((self.get_text('menu_manage'), self.get_text('menu_manage_desc'), self.user_mgmt.manage_users))
+            functions.append((self.get_text('menu_manage'), "👥", self.user_mgmt.manage_users))
 
         # إنشاء بطاقات الأزرار (Button Cards)
-        for i, (text, desc, command) in enumerate(functions):
-            row = i // 2
-            col = i % 2
+        for i, (text, icon, command) in enumerate(functions):
+            row = i // 3
+            col = i % 3
             
-            btn_frame = ttk.LabelFrame(menu_frame, text="", padding=5)
-            btn_frame.grid(row=row, column=col, padx=10, pady=10, sticky='nsew')
-            menu_frame.columnconfigure(col, weight=1)
+            btn_frame = ttk.LabelFrame(menu_frame, text="", padding=15)
+            btn_frame.grid(row=row, column=col, padx=15, pady=15, sticky='nsew')
             
-            ttk.Label(btn_frame, text=desc, font=('Segoe UI', 8), foreground='gray').pack(pady=(0, 5))
-            btn = ttk.Button(btn_frame, text=text, command=command, width=30)
+            ttk.Label(btn_frame, text=icon, font=('Segoe UI', 32)).pack(pady=10)
+            btn = ttk.Button(btn_frame, text=text, command=command, width=20)
             if "Добавить" in text or "Создать" in text:
                 btn.configure(style='Secondary.TButton')
             elif "Управление" in text:
                 btn.configure(style='Accent.TButton')
-            btn.pack(pady=5)
+            btn.pack(pady=10)
 
     # Функции, используемые в других модулях
     def show_recipe_catalog(self):
@@ -547,7 +717,10 @@ class NationalCuisineCalculator:
         """Показать экран регистрации нового пользователя"""
         self.clear_window()
 
-        self.current_frame = ttk.Frame(self.root, padding=20)
+        self.main_scroll_container = ScrollableFrame(self.root)
+        self.main_scroll_container.pack(fill=tk.BOTH, expand=True)
+
+        self.current_frame = ttk.Frame(self.main_scroll_container.scrollable_frame, padding=20)
         self.current_frame.pack(fill=tk.BOTH, expand=True)
 
         ttk.Label(self.current_frame, text=self.get_text('register_title'),

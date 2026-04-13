@@ -8,6 +8,14 @@ import tkinter as tk
 import sys
 import os
 
+# Enable DPI awareness on Windows for sharp UI and correct scaling
+if sys.platform == "win32":
+    try:
+        from ctypes import windll
+        windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        pass
+
 # Add root folder to sys.path if not there
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
